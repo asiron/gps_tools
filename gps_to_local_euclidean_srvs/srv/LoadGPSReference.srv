@@ -1,0 +1,5 @@
+#filename with or w/o extension of a NavSatFix message
+string filename
+---
+bool success   # indicate successful run of triggered service
+string message # informational, e.g. for error messages
