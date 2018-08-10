@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>gps_to_local_euclidean_srvs</name>
+  <name>gps_tools_srvs</name>
   <version>0.1.0</version>
   <description>
-    Service files for gps_to_local_euclidean package
+    Service files for gps_tools package
   </description>
 
   <maintainer email="maciej.zurad@gmail.com">Maciej Zurad</maintainer>

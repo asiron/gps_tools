@@ -1,0 +1,40 @@
+<!--
+  Transforms GPS measurements in NavSatFix message form
+  to local Euclidean frame.
+  Requires continous GPS measurements and a GPS reference,
+  usually set with gps_reference node.
+-->
+<launch>
+  <!-- earth (ENU) frame id -->
+  <arg name="earth_frame_id" default="ground_ENU"/>
+
+
+  <!-- gps frame id without orientation -->
+  <arg name="gps_no_orientation_frame_id" default="gps_no_orientation"/>
+
+  <!-- publish TF frame from earth_frame_id -> gps_no_orientation_frame_id -->
+  <arg name="publish_tf" default="false"/>
+
+
+  <!-- Subscribers -->
+
+  <!-- Topic name for the GPS reference - NavSatFix message -->
+  <arg name="gps_reference_topic" default="gps_reference"/>
+
+  <!-- Topic name for the continuous GPS measurements - NavSatFix message -->
+  <arg name="gps_position_topic" default="gps_position"/>
+
+  <!-- Publishers -->
+
+  <!-- Topic name for the local Euclidean position message -->
+  <arg name="local_euclidean_position_topic" default="local_euclidean_position"/>
+
+  <node name="gps_to_local_euclidean" pkg="gps_tools" type="gps_to_local_euclidean.py" respawn="true" output="screen">
+    <param name="publish_tf" type="bool" value="$(arg publish_tf)" />
+    <param name="earth_frame_id" type="str" value="$(arg earth_frame_id)" />
+    <param name="gps_no_orientation_frame_id" type="str" value="$(arg gps_no_orientation_frame_id)" />
+    <remap from="gps_position" to="$(arg gps_position_topic)"/>
+    <remap from="local_euclidean_position" to="$(arg local_euclidean_position_topic)"/>
+    <remap from="gps_reference" to="$(arg gps_reference_topic)"/>
+  </node>
+</launch>

@@ -1,19 +1,13 @@
 #!/usr/bin/env python
-import rospy, math, collections
+import rospy, math
 import tf, tf2_ros
 import nvector as nv
-import numpy as np
-
-from functools import wraps, partial
 
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
-from std_srvs.srv import Trigger, TriggerResponse
 from geometry_msgs.msg import (
   TransformStamped,
   Transform,
-  PoseStamped,
-  Pose,
   Quaternion,
   Vector3,
   Point,
@@ -53,7 +47,7 @@ class StampedGeoPoint(object):
   def to_msg(self):
     h = Header()
     h.stamp = self.stamp
-    h.frame_id = map_frame_id
+    h.frame_id = earth_frame_id
 
     msg = NavSatFix()
     msg.header = h
@@ -66,14 +60,14 @@ class StampedGeoPoint(object):
     vec = [self.geopoint.latitude, self.geopoint.longitude, self.geopoint.z]
     return map(math.degrees, vec[:2]) + [vec[2]] if degrees else vec
 
-measurement_history = collections.deque(maxlen=HISTORY_LENGTH)
-
 reference_stamped_geopoint = None
+last_gps_message = None
 
-map_frame_id = None
-baselink_translation_frame_id = None
+earth_frame_id = None
+gps_no_orientation_frame_id = None
 
 def gps_reference_callback(msg):
+
   lat = msg.latitude
   lon = msg.longitude
   alt = msg.altitude
@@ -86,6 +80,9 @@ def gps_reference_callback(msg):
 
   global reference_stamped_geopoint
   reference_stamped_geopoint = StampedGeoPoint(reference_geopoint, msg.header.stamp)
+
+  rospy.loginfo(('{}: GPS Reference was set to: '
+                 '{}').format(node_name, reference_stamped_geopoint))
 
 def gps_callback(msg):
   lat = msg.latitude
@@ -102,15 +99,14 @@ def gps_callback(msg):
     longitude=lon,
     z=alt,
     degrees=True)
-
   current_stamped_geopoint = StampedGeoPoint(current_geopoint, msg.header.stamp)
 
-  if len(measurement_history) == 0:
-    measurement_history.append(current_stamped_geopoint)
+  global last_gps_message
+  if last_gps_message is None:
+    last_gps_message = current_stamped_geopoint
   else:
-    last_measurement = measurement_history[-1]
-    if last_measurement != current_stamped_geopoint:
-      measurement_history.append(current_stamped_geopoint)
+    if last_gps_message != current_stamped_geopoint:
+      last_gps_message = current_stamped_geopoint
     else:
       return
 
@@ -137,19 +133,19 @@ def gps_callback(msg):
 
   h = Header()
   h.stamp = current_stamped_geopoint.stamp
-  h.frame_id = map_frame_id
+  h.frame_id = earth_frame_id
 
   p_stamped = PointStamped()
   p_stamped.header = h
   p_stamped.point.x = transform_in_ENU[0]
   p_stamped.point.y = transform_in_ENU[1]
   p_stamped.point.z = transform_in_ENU[2]
-  local_rtk_enu_position_pub.publish(p_stamped)
+  local_euclidean_position_pub.publish(p_stamped)
 
   if(publish_tf):
     t_stamped = TransformStamped()
     t_stamped.header = h
-    t_stamped.child_frame_id = baselink_translation_frame_id
+    t_stamped.child_frame_id = gps_no_orientation_frame_id
     t_stamped.transform = Transform()
     t_stamped.transform.translation = Vector3(*transform_in_ENU)
     t_stamped.transform.rotation = Quaternion(0, 0, 0, 1)
@@ -162,20 +158,20 @@ node_name = rospy.get_name()
 
 publish_tf = rospy.get_param('~publish_tf')
 
-map_frame_id = rospy.get_param('~map_frame_id')
-baselink_translation_frame_id = rospy.get_param('~baselink_translation_frame_id')
+earth_frame_id = rospy.get_param('~earth_frame_id')
+gps_no_orientation_frame_id = rospy.get_param('~gps_no_orientation_frame_id')
 
-rospy.loginfo('{}: Assuming map frame id to be: {}'.format(node_name, map_frame_id))
+rospy.loginfo('{}: Assuming map frame id to be: {}'.format(node_name, earth_frame_id))
 rospy.loginfo(('{}: Assuming baselink translation (no orientation) frame id'
-               'to be: {}'.format(node_name, baselink_translation_frame_id)))
+               'to be: {}'.format(node_name, gps_no_orientation_frame_id)))
 
 if(publish_tf):
   tf_broadcaster = tf2_ros.TransformBroadcaster()
 
-rospy.Subscriber('rtk_reference_geopoint', NavSatFix, gps_reference_callback)
+rospy.Subscriber('gps_reference', NavSatFix, gps_reference_callback)
 
-rospy.Subscriber('global_rtk_position', NavSatFix, gps_callback)
-local_rtk_enu_position_pub  = rospy.Publisher('local_rtk_enu_position',
+rospy.Subscriber('gps_position', NavSatFix, gps_callback)
+local_euclidean_position_pub  = rospy.Publisher('local_euclidean_position',
                                               PointStamped,
                                               queue_size = 1)
 

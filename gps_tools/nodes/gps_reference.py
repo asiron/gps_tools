@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import rospy, math, collections, time
+import rospy, math, collections, time, os, yaml
 import nvector as nv
 import numpy as np
 
@@ -9,18 +9,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger, TriggerResponse
 
-from gps_to_local_euclidean_srvs.srv import LoadGPSReference
-
-# from geometry_msgs.msg import (
-#   TransformStamped,
-#   Transform,
-#   PoseStamped,
-#   Pose,
-#   Quaternion,
-#   Vector3,
-#   Point,
-#   PointStamped
-# )
+from gps_tools_srvs.srv import LoadGPSReference, LoadGPSReferenceResponse
 
 WGS84 = nv.FrameE(name='WGS84')
 
@@ -51,6 +40,20 @@ def logged_service_callback(f, throttled = True):
     return ret_val
 
   return wrapper
+
+def msg_dict_to_NavSatFix(msg_dict):
+  msg = NavSatFix()
+  msg.header = Header()
+  msg.header.stamp = rospy.Time.now()
+  msg.header.frame_id = msg_dict['header']['frame_id']
+  msg.latitude = msg_dict['latitude']
+  msg.longitude = msg_dict['longitude']
+  msg.altitude = msg_dict['altitude']
+  msg.status.status = msg_dict['status']['status']
+  msg.status.service = msg_dict['status']['service']
+  msg.position_covariance = msg_dict['position_covariance']
+  msg.position_covariance_type = msg_dict['position_covariance_type']
+  return msg
 
 class StampedGeoPoint(object):
 
@@ -83,7 +86,7 @@ class StampedGeoPoint(object):
   def to_msg(self):
     h = Header()
     h.stamp = self.stamp
-    h.frame_id = map_frame_id
+    h.frame_id = earth_frame_id
 
     msg = NavSatFix()
     msg.header = h
@@ -100,7 +103,7 @@ class StampedGeoPoint(object):
     filename = time.strftime('gps_reference_%Y%m%d-%H%M%S.yml')
     filepath = os.path.join(output_directory, filename)
     rospy.loginfo('{}: Saving to a file: {}'.format(node_name, filepath))
-    with open(filepath, 'rt') as f:
+    with open(filepath, 'wt') as f:
       f.write(str(self.to_msg()))
 
 measurement_history = collections.deque(maxlen=HISTORY_LENGTH)
@@ -113,7 +116,7 @@ def gps_callback(msg):
   alt = msg.altitude
 
   if 0.0 in [lat, lon, alt]:
-    rospy.logwarn_throttle(2, ('{}: Received a msg with lat, lon, alt'
+    rospy.logwarn_throttle(2, ('{}: Received a GPS msg with lat, lon, alt'
                               ': 0, 0, 0'.format(node_name)))
     return
 
@@ -131,8 +134,10 @@ def gps_callback(msg):
     last_measurement = measurement_history[-1]
     if last_measurement != current_stamped_geopoint:
       measurement_history.append(current_stamped_geopoint)
-    else:
-      return
+
+  if reference_stamped_geopoint is None and autoset_geo_reference:
+    rospy.logwarn_throttle(1, "{}: Auto-setting GPS reference!".format(node_name))
+    set_geo_reference()
 
 @logged_service_callback
 def load_gps_reference(request):
@@ -144,17 +149,17 @@ def load_gps_reference(request):
   filepath = os.path.join(gps_reference_output_directory, filename)
   with open(filepath, 'rt') as f:
     try:
-      msg_yaml = yaml.load(f)
+      msg_dict = yaml.load(f)
     except yaml.YAMLError as exc:
-      return LoadGPSReference(False, 'YAML parse exception!')
+      return LoadGPSReferenceResponse(False, 'YAML parse exception!')
 
   try:
-    msg = NavSatFix(**msg_yaml)
+    msg = msg_dict_to_NavSatFix(msg_dict)
   except:
-    return LoadGPSReference(False, ('Exception during msg creation, '
-                                    'probably a malformed YAML file!'))
+    return LoadGPSReferenceResponse(False, ('Exception during msg creation ',
+                                            'probably a malformed YAML file!'))
   reference_geopoint_pub.publish(msg)
-  return LoadGPSReference(True, 'GPS reference loaded correctly')
+  return LoadGPSReferenceResponse(True, 'GPS reference loaded correctly')
 
 @logged_service_callback
 def set_geo_reference(request=None):
@@ -210,18 +215,21 @@ def set_geo_reference(request=None):
 
   reference_stamped_geopoint.save(gps_reference_output_directory)
 
-  string_response = 'Reference was set to: {}'.format(reference_stamped_geopoint)
+  string_response = 'GPS Reference was set to: {}'.format(reference_stamped_geopoint)
   return TriggerResponse(True, string_response)
 
 rospy.init_node('gps_reference')
 
 node_name = rospy.get_name()
+
+earth_frame_id = rospy.get_param('~earth_frame_id')
 autoset_geo_reference = rospy.get_param('~autoset_geo_reference')
+gps_reference_output_directory = rospy.get_param('~gps_reference_output_directory')
 
-output_directory = rospy.get_param('~gps_reference_output_directory')
+if not os.path.exists(gps_reference_output_directory):
+  os.makedirs(gps_reference_output_directory)
 
-
-rospy.Subscriber('global_rtk_position', NavSatFix, gps_callback)
+rospy.Subscriber('gps_position', NavSatFix, gps_callback)
 
 rospy.Service('set_geo_reference', Trigger, set_geo_reference)
 rospy.Service('load_gps_reference', LoadGPSReference, load_gps_reference)

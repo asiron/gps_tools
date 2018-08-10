@@ -4,11 +4,10 @@ from distutils.core import setup
 from catkin_pkg.python_setup import generate_distutils_setup
 
 setup_args = generate_distutils_setup(
-  packages=['gps_to_local_euclidean'],
+  packages=['gps_tools'],
   package_dir={'': 'src'},
   requires=[
     'rospy',
-    'dji_sdk',
     'std_msgs',
     'std_srvs',
     'geometry_msgs',

@@ -1,25 +1,27 @@
 <package format="2">
-  <name>gps_to_local_euclidean</name>
+  <name>gps_tools</name>
   <version>0.1.0</version>
-  <description>The gps_to_local_euclidean package </description>
+  <description>The gps_tools package </description>
   <maintainer email="maciej.zurad@gmail.com">Maciej Zurad</maintainer>
 
-  <license>MIT</license>
+  <license>BSD</license>
 
   <author email="maciej.zurad@gmail.com">Maciej Zurad</author>
 
-  <!-- TODO - check dependencies -->
   <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf</depend>
 
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
-  <depend>rospy</depend>
-  <depend>tf2_ros</depend>
-  <depend>tf</depend>
+  <depend>gps_tools_srvs</depend>
 
   <!-- exec dependencies -->
+  <exec_depend>python-numpy</exec_depend>
   <exec_depend>python-nvector</exec_depend>
   <exec_depend>pip-tqdm</exec_depend>
 

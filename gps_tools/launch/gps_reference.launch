@@ -1,0 +1,40 @@
+<!--
+  Sets a GPS reference from measurements,
+  publishes it and saves it to a file
+  Allows also for loading of an old GPS reference
+-->
+<launch>
+  
+  <!-- ENU frame id -->
+  <arg name="earth_frame_id" default="ground_ENU"/>
+
+  <!-- Autoset GPS reference upon start-up -->
+  <arg name="autoset_geo_reference" default="true"/>
+
+  <!-- Directory with GPS reference messages -->
+  <arg name="gps_reference_output_directory" default="/tmp"/>
+
+  <!-- Subscribers -->
+  <!-- Topic name for the continuous GPS measurements - NavSatFix message -->
+  <arg name="gps_position_topic" default="gps_position"/>
+
+  <!-- Publishers -->
+  <!-- Topic name for the GPS reference - NavSatFix message -->
+  <arg name="gps_reference_topic_name" default="gps_reference"/>
+
+  <!-- Services -->
+  <!-- Loads a GPS reference message saved in a YAML file -->
+  <arg name="load_gps_reference_service_name" default="load_gps_reference"/>
+  <!-- Sets a GPS reference using measurements, publishes and saves -->
+  <arg name="set_geo_reference_service_name" default="set_geo_reference"/>
+
+  <node name="gps_reference" pkg="gps_tools" type="gps_reference.py" respawn="true" output="screen">
+    <param name="earth_frame_id" type="str" value="$(arg earth_frame_id)" />
+    <param name="autoset_geo_reference" type="bool" value="$(arg autoset_geo_reference)" />
+    <param name="gps_reference_output_directory" type="str" value="$(arg gps_reference_output_directory)" />
+    <remap from="gps_position" to="$(arg gps_position_topic)"/>
+    <remap from="gps_reference" to="$(arg gps_reference_topic_name)"/>
+    <remap from="load_gps_reference" to="$(arg load_gps_reference_service_name)" />
+    <remap from="set_geo_reference" to="$(arg set_geo_reference_service_name)" />
+  </node>
+</launch>

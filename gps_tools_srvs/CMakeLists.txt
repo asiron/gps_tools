@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(gps_to_local_euclidean_srvs)
+project(gps_tools_srvs)
 
 find_package(catkin REQUIRED COMPONENTS
   message_generation
