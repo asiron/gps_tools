@@ -4,12 +4,13 @@
   Allows also for loading of an old GPS reference
 -->
 <launch>
-  
+
   <!-- ENU frame id -->
   <arg name="earth_frame_id" default="ground_ENU"/>
 
   <!-- Autoset GPS reference upon start-up -->
   <arg name="autoset_geo_reference" default="true"/>
+  <arg name="autoset_geo_reference_file" default=""/>
 
   <!-- Directory with GPS reference messages -->
   <arg name="gps_reference_output_directory" default="/tmp"/>
@@ -31,6 +32,7 @@
   <node name="gps_reference" pkg="gps_tools" type="gps_reference.py" respawn="true" output="screen">
     <param name="earth_frame_id" type="str" value="$(arg earth_frame_id)" />
     <param name="autoset_geo_reference" type="bool" value="$(arg autoset_geo_reference)" />
+    <param name="autoset_geo_reference_file" type="str" value="$(arg autoset_geo_reference_file)" />
     <param name="gps_reference_output_directory" type="str" value="$(arg gps_reference_output_directory)" />
     <remap from="gps_position" to="$(arg gps_position_topic)"/>
     <remap from="gps_reference" to="$(arg gps_reference_topic_name)"/>

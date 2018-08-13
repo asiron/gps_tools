@@ -9,7 +9,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger, TriggerResponse
 
-from gps_tools_srvs.srv import LoadGPSReference, LoadGPSReferenceResponse
+from gps_tools_srvs.srv import LoadGPSReference, LoadGPSReferenceRequest, LoadGPSReferenceResponse
 
 WGS84 = nv.FrameE(name='WGS84')
 
@@ -95,6 +95,15 @@ class StampedGeoPoint(object):
     msg.altitude = self.geopoint.z
     return msg
 
+  @staticmethod
+  def from_msg(msg):
+    geopoint = WGS84.GeoPoint(
+      latitude=msg.latitude,
+      longitude=msg.longitude,
+      z=msg.altitude,
+      degrees=True)
+    return StampedGeoPoint(geopoint, msg.header.stamp)
+
   def to_vec(self, degrees=True):
     vec = [self.geopoint.latitude, self.geopoint.longitude, self.geopoint.z]
     return map(math.degrees, vec[:2]) + [vec[2]] if degrees else vec
@@ -135,12 +144,19 @@ def gps_callback(msg):
     if last_measurement != current_stamped_geopoint:
       measurement_history.append(current_stamped_geopoint)
 
-  if reference_stamped_geopoint is None and autoset_geo_reference:
-    rospy.logwarn_throttle(1, "{}: Auto-setting GPS reference!".format(node_name))
-    set_geo_reference()
+
+  if reference_stamped_geopoint is None:
+    if autoset_geo_reference_file:
+      rospy.logwarn(("{}: Auto-setting GPS reference from "
+                     "loaded file {}!").format(node_name, autoset_geo_reference_file))
+      load_gps_reference(LoadGPSReferenceRequest(autoset_geo_reference_file))
+
+    elif autoset_geo_reference:
+      rospy.logwarn_throttle(1, "{}: Auto-setting GPS reference!".format(node_name))
+      set_geo_reference()
 
 @logged_service_callback
-def load_gps_reference(request):
+def load_gps_reference(request=None):
 
   filename = request.filename
   if not (filename.endswith('.yml') or filename.endswith('.yaml')):
@@ -155,6 +171,8 @@ def load_gps_reference(request):
 
   try:
     msg = msg_dict_to_NavSatFix(msg_dict)
+    global reference_stamped_geopoint
+    reference_stamped_geopoint = StampedGeoPoint.from_msg(msg)
   except:
     return LoadGPSReferenceResponse(False, ('Exception during msg creation ',
                                             'probably a malformed YAML file!'))
@@ -225,6 +243,7 @@ node_name = rospy.get_name()
 earth_frame_id = rospy.get_param('~earth_frame_id')
 autoset_geo_reference = rospy.get_param('~autoset_geo_reference')
 gps_reference_output_directory = rospy.get_param('~gps_reference_output_directory')
+autoset_geo_reference_file = rospy.get_param('~autoset_geo_reference_file')
 
 if not os.path.exists(gps_reference_output_directory):
   os.makedirs(gps_reference_output_directory)
