@@ -144,16 +144,9 @@ def gps_callback(msg):
     if last_measurement != current_stamped_geopoint:
       measurement_history.append(current_stamped_geopoint)
 
-
-  if reference_stamped_geopoint is None:
-    if autoset_geo_reference_file:
-      rospy.logwarn(("{}: Auto-setting GPS reference from "
-                     "loaded file {}!").format(node_name, autoset_geo_reference_file))
-      load_gps_reference(LoadGPSReferenceRequest(autoset_geo_reference_file))
-
-    elif autoset_geo_reference:
-      rospy.logwarn_throttle(1, "{}: Auto-setting GPS reference!".format(node_name))
-      set_geo_reference()
+  if reference_stamped_geopoint is None and autoset_geo_reference:
+    rospy.logwarn_throttle(1, "{}: Auto-setting GPS reference!".format(node_name))
+    set_geo_reference()
 
 @logged_service_callback
 def load_gps_reference(request=None):
@@ -263,6 +256,11 @@ while not rospy.is_shutdown():
   if reference_stamped_geopoint is None:
     rospy.logwarn(('{}: No GPS message received and no reference '
                    'was set!'.format(node_name)))
+
+    if autoset_geo_reference_file:
+      rospy.logwarn(("{}: Auto-setting GPS reference from "
+                    "loaded file {}!").format(node_name, autoset_geo_reference_file))
+      load_gps_reference(LoadGPSReferenceRequest(autoset_geo_reference_file))
   try:
     r.sleep()
   except rospy.exceptions.ROSTimeMovedBackwardsException:
