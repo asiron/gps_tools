@@ -5,7 +5,6 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   tf2_ros
   tf
-  dji_sdk
   std_msgs
   std_srvs
   sensor_msgs
